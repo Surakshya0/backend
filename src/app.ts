@@ -1,17 +1,18 @@
 import express from "express";
-
-import router from "./routes/index"; // remove `.js` when using TS
+import router from "./routes/index";
+import authRoutes from "./routes/auth";
 
 const app = express();
 const PORT: number = Number(process.env.PORT) || 5000;
 
-// middleware
+// Global middleware
 app.use(express.json());
 
-// use routes
-app.use("/api", router);
+//  Routes
+app.use("/api", router);      // all general routes
+app.use("/auth", authRoutes); // authentication routes
 
-// start server
+//  Start server
 app.listen(PORT, () => {
   console.log(`✅ YAYY API running at http://localhost:${PORT}`);
 });
