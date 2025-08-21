@@ -18,29 +18,50 @@ interface UserInput {
   password: string;
 }
 
-//  GET all users with pagination (3 per page)
+//  GET all users with pagination ra search
 export const getAllUsers = async (
   req: Request,
   res: Response
 ): Promise<Response | void> => {
   try {
+    const { search } = req.query;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = 3;
+    const limit = parseInt(req.query.limit as string) || 3; // default 3 per page
     const offset = (page - 1) * limit;
 
-    const totalResult = await client.query("SELECT COUNT(*) FROM userdetail");
-    const totalCount = parseInt(totalResult.rows[0].count);
+    // Base query
+    let whereClause = "";
+    const values: any[] = [];
 
-    const { rows } = await client.query(
-      "SELECT * FROM userdetail ORDER BY id LIMIT $1 OFFSET $2",
-      [limit, offset]
-    );
+    if (search) {
+      whereClause = `WHERE username ILIKE $1 OR email ILIKE $1`;
+      values.push(`%${search}%`);
+    }
+
+    // Count query (for pagination )
+    const countQuery = `
+      SELECT COUNT(*) FROM userdetail
+      ${whereClause};
+    `;
+    const countResult = await client.query(countQuery, values);
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    // Data query
+    const userQuery = `
+      SELECT * FROM userdetail
+      ${whereClause}
+      ORDER BY id ASC
+      LIMIT $${values.length + 1} OFFSET $${values.length + 2};
+    `;
+    values.push(limit, offset);
+
+    const { rows } = await client.query(userQuery, values);
 
     return res.status(200).json({
       msg: "Users fetched successfully",
       users: rows,
       pagination: {
-        totalCount,
+        totalCount, // filtered correctly current page ma jati cha teti dekhaucha
         page,
         limit,
         totalPages: Math.ceil(totalCount / limit),
@@ -54,13 +75,22 @@ export const getAllUsers = async (
   }
 };
 
+
 //  ADD user
 export const addUser = async (
   req: Request,
   res: Response
 ): Promise<Response | void> => {
-  const { username, address, contact, email, dob, gender, role, password }: UserInput =
-    req.body;
+  const {
+    username,
+    address,
+    contact,
+    email,
+    dob,
+    gender,
+    role,
+    password,
+  }: UserInput = req.body;
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -86,8 +116,16 @@ export const updateUser = async (
   res: Response
 ): Promise<Response | void> => {
   const { id } = req.params;
-  const { username, address, contact, email, dob, gender, role, password }: UserInput =
-    req.body;
+  const {
+    username,
+    address,
+    contact,
+    email,
+    dob,
+    gender,
+    role,
+    password,
+  }: UserInput = req.body;
 
   try {
     let hashedPassword = password;
@@ -140,3 +178,4 @@ export const deleteUser = async (
     return res.status(500).json({ error: "Delete failed" });
   }
 };
+
