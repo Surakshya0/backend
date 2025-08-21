@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     /* File Layout */
-    "rootDir": "./src",             // your TS source files
+    "rootDir": "./src",             // my  TS source files
     "outDir": "./dist",             // compiled JS output
 
     /* Environment Settings */

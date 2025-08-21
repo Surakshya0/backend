@@ -1,14 +1,48 @@
 import { Request, Response } from "express";
 import client from "../config/db.config";
 
-//  GET all users
-export const getAllUsers = async (_req: Request, res: Response): Promise<Response> => {
+// Enums
+type Gender = "Male" | "Female" | "Other";
+type Role = "Admin" | "User" | "Guest";
+
+// DTO (Data Transfer Object)
+interface UserInput {
+  username: string;
+  address: string;
+  contact: string;
+  email: string;
+  dob: string;
+  gender: Gender;
+  role: Role;
+  password: string;
+}
+
+//  GET all users with classic pagination (3 per page)
+export const getAllUsers = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const { rows, rowCount } = await client.query("SELECT * FROM userdetail");
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = 3;
+    const offset = (page - 1) * limit;
+
+    const totalResult = await client.query("SELECT COUNT(*) FROM userdetail");
+    const totalCount = parseInt(totalResult.rows[0].count);
+
+    const { rows } = await client.query(
+      "SELECT * FROM userdetail ORDER BY id LIMIT $1 OFFSET $2",
+      [limit, offset]
+    );
+
     return res.status(200).json({
       msg: "Users fetched successfully",
       users: rows,
-      totalCount: rowCount,
+      pagination: {
+        totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+        hasNext: page < Math.ceil(totalCount / limit),
+        hasPrev: page > 1,
+      },
     });
   } catch (err) {
     console.error(err);
@@ -18,7 +52,7 @@ export const getAllUsers = async (_req: Request, res: Response): Promise<Respons
 
 //  ADD user
 export const addUser = async (req: Request, res: Response): Promise<Response> => {
-  const { username, address, contact, email, dob, gender, role, password } = req.body;
+  const { username, address, contact, email, dob, gender, role, password }: UserInput = req.body;
 
   try {
     const { rows } = await client.query(
@@ -37,7 +71,7 @@ export const addUser = async (req: Request, res: Response): Promise<Response> =>
 //  UPDATE user
 export const updateUser = async (req: Request, res: Response): Promise<Response> => {
   const { id } = req.params;
-  const { username, address, contact, email, dob, gender, role, password } = req.body;
+  const { username, address, contact, email, dob, gender, role, password }: UserInput = req.body;
 
   try {
     const { rows } = await client.query(
@@ -58,7 +92,7 @@ export const updateUser = async (req: Request, res: Response): Promise<Response>
   }
 };
 
-//  DELETE user
+// DELETE user
 export const deleteUser = async (req: Request, res: Response): Promise<Response> => {
   const { id } = req.params;
 
