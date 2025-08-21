@@ -1,11 +1,12 @@
 import { Request, Response } from "express";
+import bcrypt from "bcryptjs";
 import client from "../config/db.config";
 
 // Enums
 type Gender = "Male" | "Female" | "Other";
 type Role = "Admin" | "User" | "Guest";
 
-// DTO (Data Transfer Object)
+// DTO
 interface UserInput {
   username: string;
   address: string;
@@ -17,8 +18,11 @@ interface UserInput {
   password: string;
 }
 
-//  GET all users with classic pagination (3 per page)
-export const getAllUsers = async (req: Request, res: Response): Promise<Response> => {
+//  GET all users with pagination (3 per page)
+export const getAllUsers = async (
+  req: Request,
+  res: Response
+): Promise<Response | void> => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = 3;
@@ -51,41 +55,60 @@ export const getAllUsers = async (req: Request, res: Response): Promise<Response
 };
 
 //  ADD user
-export const addUser = async (req: Request, res: Response): Promise<Response> => {
-  const { username, address, contact, email, dob, gender, role, password }: UserInput = req.body;
+export const addUser = async (
+  req: Request,
+  res: Response
+): Promise<Response | void> => {
+  const { username, address, contact, email, dob, gender, role, password }: UserInput =
+    req.body;
 
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const { rows } = await client.query(
       `INSERT INTO userdetail (username, address, contact, email, dob, gender, role, password) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [username, address, contact, email, dob, gender, role, password]
+      [username, address, contact, email, dob, gender, role, hashedPassword]
     );
 
-    return res.status(201).json({ msg: "User added successfully", user: rows[0] });
+    return res
+      .status(201)
+      .json({ msg: "User added successfully", user: rows[0] });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Insert failed" });
   }
 };
 
-//  UPDATE user
-export const updateUser = async (req: Request, res: Response): Promise<Response> => {
+// UPDATE user
+export const updateUser = async (
+  req: Request,
+  res: Response
+): Promise<Response | void> => {
   const { id } = req.params;
-  const { username, address, contact, email, dob, gender, role, password }: UserInput = req.body;
+  const { username, address, contact, email, dob, gender, role, password }: UserInput =
+    req.body;
 
   try {
+    let hashedPassword = password;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+
     const { rows } = await client.query(
       `UPDATE userdetail 
        SET username=$1, address=$2, contact=$3, email=$4, dob=$5, gender=$6, role=$7, password=$8 
        WHERE id=$9 RETURNING *`,
-      [username, address, contact, email, dob, gender, role, password, id]
+      [username, address, contact, email, dob, gender, role, hashedPassword, id]
     );
 
     if (rows.length === 0) {
       return res.status(404).json({ msg: "User not found" });
     }
 
-    return res.status(200).json({ msg: "User updated successfully", user: rows[0] });
+    return res
+      .status(200)
+      .json({ msg: "User updated successfully", user: rows[0] });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Update failed" });
@@ -93,17 +116,25 @@ export const updateUser = async (req: Request, res: Response): Promise<Response>
 };
 
 // DELETE user
-export const deleteUser = async (req: Request, res: Response): Promise<Response> => {
+export const deleteUser = async (
+  req: Request,
+  res: Response
+): Promise<Response | void> => {
   const { id } = req.params;
 
   try {
-    const { rows } = await client.query("DELETE FROM userdetail WHERE id=$1 RETURNING *", [id]);
+    const { rows } = await client.query(
+      "DELETE FROM userdetail WHERE id=$1 RETURNING *",
+      [id]
+    );
 
     if (rows.length === 0) {
       return res.status(404).json({ msg: "User not found" });
     }
 
-    return res.status(200).json({ msg: "User deleted successfully", user: rows[0] });
+    return res
+      .status(200)
+      .json({ msg: "User deleted successfully", user: rows[0] });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Delete failed" });
