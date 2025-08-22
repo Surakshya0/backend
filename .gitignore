@@ -1,34 +1,6 @@
-# Node.js dependencies
-node_modules/
-
-# TypeScript build output
-dist/
-build/
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-logs/
-*.log
-
-# Environment variables
-.env
-.env.* 
-!.env.example   # keep a template for others
-
-# Editor files
-.vscode/
-.idea/
-
-# System files
-.DS_Store
-Thumbs.db
-
-# TypeScript cache
-*.tsbuildinfo
-
-# Temporary files
-tmp/
-temp/
+.gitignore
+backend/
+  node_modules/
+  src/
+  package.json
+  package-lock.json
