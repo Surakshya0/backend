@@ -1,21 +1,24 @@
 import { Router } from "express";
 import {
-  addProduct,
-  getAllProducts,
-  getMyProducts,
+  createProduct,
+  getProducts,
   updateProduct,
-  deleteProduct,
+  deleteProduct
 } from "../controllers/product.controller";
-import { authenticate } from "../middleware/auth.middleware";
+import { authenticate, authorize } from "../middleware/auth.middleware";
 
+const router = Router();
 
-const productRouter = Router();
+// Create product (Admin only)
+router.post("/", authenticate, authorize(["Admin"]), createProduct);
 
-productRouter.get("/", authenticate, getAllProducts);
-productRouter.get("/my", authenticate, getMyProducts);
-productRouter.post("/", authenticate, addProduct);
-productRouter.put("/:id", authenticate, updateProduct);
-productRouter.delete("/:id", authenticate, deleteProduct);
+// Get all products (logged-in user only)
+router.get("/", authenticate, getProducts);
 
+// Update product (owner or Admin)
+router.put("/:id", authenticate, updateProduct);
 
-export default productRouter;
+// Delete product (owner or Admin)
+router.delete("/:id", authenticate, deleteProduct);
+
+export default router;

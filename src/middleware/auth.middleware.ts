@@ -1,61 +1,41 @@
 import { Request, Response, NextFunction } from "express";
-import jwt, { JwtPayload } from "jsonwebtoken";
-
-const JWT_SECRET: string = process.env.JWT_SECRET || "mysecretkey";
-
-interface AuthRequest extends Request {
-  user?: { userId: number; role: string };
-}
+import jwt from "jsonwebtoken";
 
 export const authenticate = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
-): void => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader) {
-    res.status(401).json({ message: "No token provided" });
-    return;
-  }
-
-  const token = authHeader.split(" ")[1];
+): void | Response => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    res.status(401).json({ message: "Token missing" });
-    return;
+    return res.status(401).json({ msg: "Token missing" });
   }
 
   try {
-    // ✅ force TypeScript to know token is string
-    const decoded = jwt.verify(token as string, JWT_SECRET) as JwtPayload;
-
-    if (!decoded || typeof decoded !== "object" || !decoded.userId || !decoded.role) {
-      res.status(403).json({ message: "Invalid token payload" });
-      return;
-    }
-
-    req.user = {
-      userId: decoded.userId as number,
-      role: decoded.role as string,
-    };
-
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
+    (req as any).user = decoded;
     next();
-  } catch (error) {
-    res.status(403).json({ message: "Invalid or expired token" });
+  } catch (err) {
+    return res.status(403).json({ msg: "Invalid token" });
   }
 };
 
 export const authorize = (roles: string[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
+  return (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): void | Response => {
+    const user = (req as any).user;
+
+    if (!user) {
+      return res.status(401).json({ msg: "Unauthorized" });
     }
 
-    if (!roles.includes(req.user.role)) {
-      res.status(403).json({ message: "Forbidden: You don’t have permission" });
-      return;
+    if (!roles.includes(user.role)) {
+      return res.status(403).json({ msg: "Forbidden: insufficient permissions" });
     }
 
     next();
