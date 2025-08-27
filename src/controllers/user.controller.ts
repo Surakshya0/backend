@@ -93,11 +93,24 @@ export const addUser = async (
   }: UserInput = req.body;
 
   try {
+    // Validate required fields (must be non-empty strings)
+    const missing: string[] = [];
+    if (typeof username !== "string" || username.trim() === "") missing.push("username");
+    if (typeof email !== "string" || email.trim() === "") missing.push("email");
+    if (typeof password !== "string" || password.trim() === "") missing.push("password");
+
+    if (missing.length > 0) {
+      return res
+        .status(400)
+        .json({ error: `${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} required` });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const { rows } = await client.query(
       `INSERT INTO userdetail (username, address, contact, email, dob, gender, role, password) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, username, address, contact, email, dob, gender, role`,
       [username, address, contact, email, dob, gender, role, hashedPassword]
     );
 
@@ -125,10 +138,20 @@ export const updateUser = async (
     gender,
     role,
     password,
-  }: UserInput = req.body;
+  }: Partial<UserInput> = req.body;
 
   try {
-    let hashedPassword = password;
+    // Fetch existing user to preserve current password if not updating it
+    const existingUserResult = await client.query(
+      `SELECT password FROM userdetail WHERE id=$1`,
+      [id]
+    );
+
+    if (existingUserResult.rows.length === 0) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    let hashedPassword = existingUserResult.rows[0].password as string;
     if (password) {
       hashedPassword = await bcrypt.hash(password, 10);
     }
@@ -136,7 +159,8 @@ export const updateUser = async (
     const { rows } = await client.query(
       `UPDATE userdetail 
        SET username=$1, address=$2, contact=$3, email=$4, dob=$5, gender=$6, role=$7, password=$8 
-       WHERE id=$9 RETURNING *`,
+       WHERE id=$9
+       RETURNING id, username, address, contact, email, dob, gender, role`,
       [username, address, contact, email, dob, gender, role, hashedPassword, id]
     );
 
